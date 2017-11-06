@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/apparentlymart/go-tfplan/tfplan/v1"
 	"github.com/apparentlymart/go-tfplan/tfplan/v2"
 )
 
@@ -16,10 +17,12 @@ const planFormatMagic = "tfplan"
 // Different plan versions use different types, so the value returned may be
 // any of the following types depending on the version:
 //
+//     github.com/apparentlymart/go-tfplan/tfplan/v1 *Plan (version 1)
 //     github.com/apparentlymart/go-tfplan/tfplan/v2 *Plan (version 2)
 //
 // Use a type switch to recognize the versions you wish to support and then
-// handle each version separately.
+// handle each version separately. New plan types may be returned by future
+// versions, so be sure to handle the "default" case of the type switch.
 func LoadPlan(src io.Reader) (interface{}, error) {
 	var err error
 	n := 0
@@ -47,11 +50,24 @@ func LoadPlan(src io.Reader) (interface{}, error) {
 	}
 
 	switch formatByte[0] {
+	case 1:
+		return loadPlanV1(src)
 	case 2:
 		return loadPlanV2(src)
 	default:
 		return nil, fmt.Errorf("unsupported plan file version %d", formatByte[0])
 	}
+}
+
+func loadPlanV1(src io.Reader) (*v1.Plan, error) {
+	var result v1.Plan
+
+	dec := gob.NewDecoder(src)
+	if err := dec.Decode(&result); err != nil {
+		return nil, err
+	}
+
+	return &result, nil
 }
 
 func loadPlanV2(src io.Reader) (*v2.Plan, error) {
